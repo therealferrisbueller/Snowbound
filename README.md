@@ -44,3 +44,35 @@ Before applying `RWA-75`, detect source SQL dialect and normalize to Snowflake E
 
 - Runbook: `docs/RWA-75.md`
 - Input template: `docs/INPUT_INSTRUCTIONS.md`
+
+## Updating existing PUBLIC views (streamlined)
+
+For regular logic updates, keep the `RWA-75` object contract stable and update only the source view.
+
+Standard update flow (no rebuild):
+
+1. Replace `HOLT.PIPELINE.<ROOT_NAME>_SOURCE_V` with the new SQL logic.
+2. Execute `HOLT.PIPELINE.<ROOT_NAME>_ROLLOVER` once to pull rollover-band changes.
+
+```sql
+CREATE OR REPLACE VIEW HOLT.PIPELINE.<ROOT_NAME>_SOURCE_V AS
+-- new normalized SQL
+;
+
+EXECUTE TASK HOLT.PIPELINE.<ROOT_NAME>_ROLLOVER;
+```
+
+If the update adds output columns:
+
+```sql
+ALTER TABLE HOLT.PIPELINE.<ROOT_NAME>_HIST
+  ADD COLUMN IF NOT EXISTS <NEW_COL> <TYPE>;
+```
+
+Then run the standard update flow above.
+
+Reserve full history rebuilds for breaking changes only (key changes, dropped/renamed columns, or split-date logic changes).
+
+## Script delivery format
+
+For each migrated view, Snowbound output should be delivered as one single copyable SQL script block.
